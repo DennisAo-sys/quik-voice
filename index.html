@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8">
   <title>Quik - Speech</title>
   <link rel="icon" href="icons/quik_icon.png" type="image/png">
@@ -126,6 +127,17 @@
 #close-btn[data-tooltip]:hover::after,
 #close-btn[data-tooltip]:hover::before {
   opacity: 1;
+}
+
+@media (max-width: 768px) {
+  #close-btn {
+    width: 50px;
+    height: 50px;
+  }
+  #close-btn img {
+    width: 50px;
+    height: 50px;
+  }
 }
 
   </style>
