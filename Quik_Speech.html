@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Quik - Speech</title>
+  <link rel="icon" href="icons/quik_icon.png" type="image/png">
+  <style>
+    body {
+      margin: 0;
+      background: #0e0e0e;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: sans-serif;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    #circle {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background-color: #7f8c8d; /* Varsayılan gri */
+      z-index: 1;
+      transition: transform 0.1s ease, background-color 0.3s ease; /* Daha hızlı tepki için transform süresini azalttık */
+    }
+
+    #circle.recording {
+      background-color: #e74c3c; /* Kayıt sırasında kırmızı */
+    }
+
+    #circle.bot-speaking {
+      background-color: #3498db; /* Bot konuşurken mavi */
+      transform: scale(1.1); /* Bot konuşurken sabit bir büyüme */
+    }
+
+/* Style for the close button */
+#close-btn {
+  position: fixed;
+  top: 9px;
+  right: 13px;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+  border: none;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: background-color 0.3s ease;
+  /* Önemli: Tooltip pseudo-elementlerinin konumlandırılabilmesi için */
+  position: relative;
+}
+
+#close-btn img:hover {
+  filter: brightness(1) invert(0);
+  background-color: #c0c0c0;
+  border-radius: 24px;
+}
+
+#close-btn img {
+  width: 30px;
+  height: 30px;
+  filter: brightness(0) invert(1);
+}
+
+/* Fade-out animation */
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.fade-out {
+  animation: fadeOut 0.5s ease forwards;
+}
+
+.close-btn-wrapper {
+  position: fixed;
+  top: 5px;
+  right: 5px;
+}
+
+/* Tooltip kutusu (butonun altında konumlanacak) */
+#close-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  transform: translateX(-50%);
+  background-color: #c0c0c0;
+  color: #212121;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Tooltip oku */
+#close-btn[data-tooltip]::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent rgba(0, 0, 0, 0.75) transparent;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Hover durumunda tooltip’i göster */
+#close-btn[data-tooltip]:hover::after,
+#close-btn[data-tooltip]:hover::before {
+  opacity: 1;
+}
+
+  </style>
+</head>
+<body>
+  <canvas id="bg"></canvas>
+  <div id="circle"></div>
+<div class="close-btn-wrapper">
+<button id="close-btn" data-tooltip="Sesli modu kapat">
+  <img src="icons/close_btn.png" alt="Kapat" draggable="false">
+</button>
+</div>
+
+  <script>
+    const startSound = new Audio("start-sound.mp3");
+    const endSound = new Audio("end-sound.mp3");
+    const circle = document.getElementById("circle");
+    const canvas = document.getElementById("bg");
+    const ctx = canvas.getContext("2d");
+    let recorder, audioChunks = [];
+    let botSpeaking = false;
+
+    // Canvas Particles (değişmedi)
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let particles = Array.from({ length: 60 }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 2 + 1,
+      dx: (Math.random() - 0.5) * 0.5,
+      dy: (Math.random() - 0.5) * 0.5
+    }));
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ffffff22";
+        ctx.fill();
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0 || p.x > canvas.width) p.dx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.dy *= -1;
+      }
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    // Sağ Tık Devre Dışı (değişmedi)
+    canvas.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+    });
+
+    // Mikrofon Sürekli Açık
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      recorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      recorder.ondataavailable = e => audioChunks.push(e.data);
+
+      recorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        audioChunks = [];
+        sendToServer(blob);
+      };
+
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      const buffer = new Uint8Array(analyser.frequencyBinCount);
+      source.connect(analyser);
+
+      let lastSpokenTime = Date.now();
+      let isRecording = false;
+
+function detectVoice() {
+  analyser.getByteTimeDomainData(buffer);
+  const sessiz = buffer.every(v => Math.abs(v - 128) < 5);
+
+  // Ses şiddetini hesapla
+  let maxGenlik = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const genlik = Math.abs(buffer[i] - 128);
+    if (genlik > maxGenlik) maxGenlik = genlik;
+  }
+  const sesSeviyesi = maxGenlik / 128; // 0 ile 1 arasında normalize et
+
+  // Ses seviyesine göre kademeli hedef ölçek belirle
+  let hedefOlcek;
+  if (sesSeviyesi < 0.33) {
+    hedefOlcek = 1.2; // Düşük ses, %20 büyüme
+  } else if (sesSeviyesi < 0.66) {
+    hedefOlcek = 1.4; // Orta ses, %50 büyüme
+  } else {
+    hedefOlcek = 1.6; // Yüksek ses, %80 büyüme
+  }
+
+  const simdi = Date.now();
+  const sonKonusmaFarki = simdi - lastSpokenTime;
+
+  // Mevcut ölçeği yumuşakça hedefe yaklaştır
+  const mevcutOlcek = parseFloat(circle.style.transform.replace("scale(", "").replace(")", "") || 1);
+  const yumusatmaFaktoru = 0.1; // Geçiş hızı
+  const yeniOlcek = mevcutOlcek + (hedefOlcek - mevcutOlcek) * yumusatmaFaktoru;
+
+  if (!sessiz && !botSpeaking) {
+    if (!isRecording) {
+      recorder.start();
+      circle.className = "recording";
+      isRecording = true;
+    }
+    circle.style.transform = `scale(${yeniOlcek})`;
+    lastSpokenTime = simdi;
+  } else if (isRecording && sonKonusmaFarki > 1500) {
+    recorder.stop();
+    circle.className = "";
+    circle.style.transform = `scale(1)`; // Varsayılan boyuta dön
+    isRecording = false;
+  } else if (!isRecording && !botSpeaking) {
+    circle.style.transform = `scale(${mevcutOlcek + (1 - mevcutOlcek) * yumusatmaFaktoru})`; // Yavaşça 1’e dön
+  }
+
+  requestAnimationFrame(detectVoice);
+}
+
+      detectVoice();
+    });
+
+    // Server'a Gönderme ve Yanıt Çalma
+    function sendToServer(blob) {
+      const formData = new FormData();
+      formData.append("audio", blob);
+
+      fetch("http://127.0.0.1:6006/quik-audio", {
+        method: "POST",
+        body: formData
+      })
+        .then(res => res.blob())
+        .then(mp3Blob => {
+          const audio = new Audio(URL.createObjectURL(mp3Blob));
+          botSpeaking = true;
+          circle.className = "bot-speaking";
+          audio.play();
+          audio.onended = () => {
+            botSpeaking = false;
+            endSound.play();
+            circle.className = "";
+            circle.style.transform = `scale(1)`; // Varsayılan boyuta dön
+          };
+        });
+    }
+
+document.getElementById("close-btn").addEventListener("click", () => {
+  document.body.classList.add("fade-out");
+  setTimeout(() => {
+    window.location.href = "file:///C:/Users/bdeni/OneDrive/Masa%C3%BCst%C3%BC/Quik_App_v2/Quik_html.html";
+  }, 500); // Matches the animation duration (0.5s)
+});
+
+  </script>
+</body>
+</html>
