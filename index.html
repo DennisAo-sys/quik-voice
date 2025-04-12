@@ -3,19 +3,33 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8">
-  <title>Quik - Speech</title>
+  <title>Quik - Konuşma</title>
   <link rel="icon" href="icons/quik_icon.png" type="image/png">
   <style>
     body {
       margin: 0;
-      background: #0e0e0e;
+      background: #202020;
       overflow: hidden;
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
       font-family: sans-serif;
+    opacity: 0; /* Başlangıçta görünmez */
+    animation: fadeIn 1s ease forwards; /* 0.5 saniyede animasyon */
+  }
+
+  /* Fade-in ve hafif kayma animasyonu */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+
     }
+    to {
+      opacity: 1;
+
+    }
+  }
 
     canvas {
       position: fixed;
@@ -25,145 +39,443 @@
       pointer-events: none;
     }
 
-    #circle {
+    #circle-container {
+      position: relative;
       width: 120px;
       height: 120px;
-      border-radius: 50%;
-      background-color: #7f8c8d; /* Varsayılan gri */
       z-index: 1;
-      transition: transform 0.1s ease, background-color 0.3s ease; /* Daha hızlı tepki için transform süresini azalttık */
+    }
+
+    #circle {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background-color: #7f8c8d;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+      position: absolute;
+      overflow: hidden;
+      transition: transform 0.3s ease, background-color 0.3s ease;
     }
 
     #circle.recording {
-      background-color: #e74c3c; /* Kayıt sırasında kırmızı */
+      background-color: #DDD6B8 !important;
     }
 
     #circle.bot-speaking {
-      background-color: #3498db; /* Bot konuşurken mavi */
-      transform: scale(1.1); /* Bot konuşurken sabit bir büyüme */
+      background-color: #FFA200 !important;
+      animation: gentle-pulse 3s infinite ease-in-out;
     }
 
-/* Style for the close button */
-#close-btn {
-  position: fixed;
-  top: 9px;
-  right: 13px;
-  width: 30px;
-  height: 30px;
-  background-color: transparent;
-  border: none;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 10;
-  transition: background-color 0.3s ease;
-  /* Önemli: Tooltip pseudo-elementlerinin konumlandırılabilmesi için */
-  position: relative;
-}
+    @keyframes gentle-pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
 
-#close-btn img:hover {
-  filter: brightness(1) invert(0);
-  background-color: #c0c0c0;
-  border-radius: 24px;
-}
+    .pulse-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 120%;
+      height: 120%;
+      border-radius: 50%;
+      background: transparent;
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      transform: translate(-50%, -50%) scale(0.8);
+      opacity: 0;
+      pointer-events: none;
+    }
 
-#close-btn img {
-  width: 30px;
-  height: 30px;
-  filter: brightness(0) invert(1);
-}
+    #wave-canvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      z-index: 2;
+      pointer-events: none;
+    }
 
-/* Fade-out animation */
-@keyframes fadeOut {
-  0% { opacity: 1; }
-  100% { opacity: 0; }
-}
+    @keyframes gentle-inner-pulse {
+      0% { transform: translate(-50%, -50%) scale(0.9); }
+      50% { transform: translate(-50%, -50%) scale(1); }
+      100% { transform: translate(-50%, -50%) scale(0.9); }
+    }
 
-.fade-out {
-  animation: fadeOut 0.5s ease forwards;
-}
+    /* Style for the close button */
+    #close-btn {
+      position: fixed;
+      top: 9px;
+      right: 13px;
+      width: 30px;
+      height: 30px;
+      background-color: transparent;
+      border: none;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+      transition: background-color 0.3s ease;
+      position: relative;
+    }
 
-.close-btn-wrapper {
-  position: fixed;
-  top: 5px;
-  right: 5px;
-}
+    #close-btn img:hover {
+      filter: brightness(1) invert(0);
+      background-color: #c0c0c0;
+      border-radius: 24px;
+    }
 
-/* Tooltip kutusu (butonun altında konumlanacak) */
-#close-btn[data-tooltip]::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  right: 0;
-  transform: translateX(-50%);
-  background-color: #c0c0c0;
-  color: #212121;
-  padding: 8px 12px;
-  border-radius: 8px;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  font-weight: 500;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
+    #close-btn img {
+      width: 30px;
+      height: 30px;
+      filter: brightness(0) invert(1);
+    }
 
-/* Tooltip oku */
-#close-btn[data-tooltip]::before {
-  content: "";
-  position: absolute;
-  right: 0;
-  transform: translateX(-50%);
-  border-width: 5px;
-  border-style: solid;
-  border-color: transparent transparent rgba(0, 0, 0, 0.75) transparent;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
+    /* Fade-out animation */
+    @keyframes fadeOut {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
 
-/* Hover durumunda tooltip’i göster */
-#close-btn[data-tooltip]:hover::after,
-#close-btn[data-tooltip]:hover::before {
-  opacity: 1;
-}
+    .fade-out {
+      animation: fadeOut 0.5s ease forwards;
+    }
 
-@media (max-width: 768px) {
-  #close-btn {
-    width: 30px;
-    height: 30px;
-  }
-  #close-btn img {
-    width: 30px;
-    height: 30px;
-  }
-}
+    .close-btn-wrapper {
+      position: fixed;
+      top: 5px;
+      right: 5px;
+    }
 
+    /* Tooltip kutusu */
+    #close-btn[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      right: -20px;
+      transform: translateX(-50%);
+      background-color: #e0e0e0;
+      color: #212121;
+      padding: 8px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      font-size: 0.8rem;
+      font-weight: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Tooltip oku */
+    #close-btn[data-tooltip]::before {
+      content: "";
+      position: absolute;
+      right: 0;
+      transform: translateX(-50%);
+      border-width: 5px;
+      border-style: solid;
+      border-color: transparent transparent rgba(0, 0, 0, 0.75) transparent;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    /* Hover durumunda tooltip'i göster */
+    #close-btn[data-tooltip]:hover::after,
+    #close-btn[data-tooltip]:hover::before {
+      opacity: 1;
+    }
+
+    @media (max-width: 768px) {
+      #close-btn {
+        width: 30px;
+        height: 30px;
+      }
+      
+      #close-btn img {
+        width: 30px;
+        height: 30px;
+      }
+    }
   </style>
 </head>
 <body>
   <canvas id="bg"></canvas>
-  <div id="circle"></div>
-<div class="close-btn-wrapper">
-<button id="close-btn" data-tooltip="Sesli modu kapat">
-  <img src="icons/close_btn.png" alt="Kapat" draggable="false">
-</button>
-</div>
+  <div id="circle-container">
+    <div id="circle"></div>
+    <canvas id="wave-canvas"></canvas>
+  </div>
+  <div class="close-btn-wrapper">
+    <button id="close-btn" data-tooltip="Sesli modu kapat">
+      <img src="icons/close_btn.png" alt="Kapat" draggable="false">
+    </button>
+  </div>
 
   <script>
+    // Ses ve UI elementleri
     const startSound = new Audio("start-sound.mp3");
     const endSound = new Audio("end-sound.mp3");
+    const circleContainer = document.getElementById("circle-container");
     const circle = document.getElementById("circle");
     const canvas = document.getElementById("bg");
     const ctx = canvas.getContext("2d");
+    const waveCanvas = document.getElementById("wave-canvas");
+    const waveCtx = waveCanvas.getContext("2d");
+    
+    // Ses kayıt değişkenleri
     let recorder, audioChunks = [];
     let botSpeaking = false;
-
-    // Canvas Particles (değişmedi)
+    let lastPulseTime = 0;
+    let currentScale = 1;
+    
+    // Arka plan ve canvas boyutları
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    
+    // Dalga canvas'ının boyutları
+    const size = 120;
+    waveCanvas.width = size;
+    waveCanvas.height = size;
+    
+    // Modern dalga animasyonu için değişkenler
+    const numPoints = 80; // Dalga yoğunluğu
+    const centerX = size / 2;
+    const centerY = size / 2;
+    const radius = size / 2;
+    const points = [];
+    const velocities = [];
+    const targetRadii = [];
+    let baseColor = "rgba(52, 152, 219, 0.5)"; // Gri
+    let recordingColor = "rgba(52, 152, 219, 0.5)"; // Mavi
+    let botColor = "rgba(52, 152, 219, 0.5)"; // Mavi
+    let currentColor = baseColor;
+    
+    // Sıvı simülasyonu için global değişkenler
+    let waterLevel = 0.5; // Su seviyesi (0-1 arası, 0.5 = yarı dolu)
+    let waterAngle = 0;   // Suyun açısı (yatay hizadan)
+    let waterVelocity = 0; // Suyun açısal hızı
 
+    // Dalga noktalarını oluştur
+    for (let i = 0; i < numPoints; i++) {
+      const angle = (i / numPoints) * Math.PI * 2;
+      // Rastgele dalgalanma ekle
+      const randomOffset = Math.random() * 4 - 2;
+      points[i] = radius - randomOffset;
+      velocities[i] = 0;
+      targetRadii[i] = radius;
+    }
+    
+    // Dalgaları çiz
+    function drawWaves(intensity) {
+      waveCtx.clearRect(0, 0, size, size);
+
+  // Circle’ın ölçeğine göre dinamik yarıçap hesapla:
+  const effectiveRadius = radius * currentScale;
+      
+      // Renk ve hız ayarları
+      let speed, waveIntensity;
+      
+      if (botSpeaking) {
+        currentColor = botColor;
+        speed = 0.04;
+        waveIntensity = 10;
+        // Bot konuşurken daha sakin bir sallantı
+        waterVelocity += (Math.sin(Date.now() / 500) * 0.005);
+      } else if (intensity > 0) {
+        currentColor = recordingColor;
+        speed = 0.08;
+        waveIntensity = 15 * intensity;
+        // Ses varsa suyu sallantıya geçir
+        waterVelocity += (Math.random() * 2 - 1) * intensity * 0.02;
+      } else {
+        currentColor = baseColor;
+        speed = 0.02;
+        waveIntensity = 5;
+        // Ses yoksa suyu stabilize et
+        waterVelocity *= 0.95;
+      }
+      
+      // Su fizik simülasyonu
+      waterAngle += waterVelocity;
+      waterVelocity *= 0.995; // Doğal sürtünme
+      
+      // Suyu doğal olarak merkeze geri getir
+      waterAngle *= 0.995;
+      
+      // Ses şiddetine göre maksimum açı sınırla
+      const maxAngle = botSpeaking ? 0.2 : (intensity > 0 ? intensity * 0.4 : 0.05);
+      if (Math.abs(waterAngle) > maxAngle) {
+        waterAngle = Math.sign(waterAngle) * maxAngle;
+        waterVelocity *= -0.5; // Çarpma etkisi
+      }
+      
+      // Renk gradyanı için parçaları al
+      const colorParts = currentColor.substring(5, currentColor.length - 1).split(',');
+      const r = colorParts[0].trim();
+      const g = colorParts[1].trim();
+      const b = colorParts[2].trim();
+      
+      // Su yüzeyini çiz
+      waveCtx.save();
+      
+      // Daire maskesi oluştur
+      waveCtx.beginPath();
+      waveCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+      waveCtx.clip();
+      
+      // Su yüzeyini çiz
+      const waterHeight = centerY + (0.5 - waterLevel) * size; // Su yüksekliği
+      const waterOffset = Math.tan(waterAngle) * radius * 0.8; // Suyun yatay kayması
+      
+      // Su alanı için gradient oluştur
+      const waterGradient = waveCtx.createLinearGradient(
+        centerX - radius, centerY, centerX + radius, centerY
+      );
+
+waterGradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.8)`);
+waterGradient.addColorStop(0.5, `rgba(${r - 20}, ${g - 20}, ${b + 20}, 1)`);
+waterGradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.8)`);
+      
+      // Su yüzeyindeki dalgalanma
+      const time = Date.now() / 1000;
+      const waveHeight = botSpeaking ? 3 : (intensity > 0 ? intensity * 4 : 1);
+      
+      // Su yüzeyinin sol ve sağ sınırları
+      const leftX = centerX - radius;
+      const rightX = centerX + radius;
+      
+      // Su alanını çiz
+      waveCtx.beginPath();
+      waveCtx.moveTo(leftX, size);
+      
+      // Su yüzeyi dalga noktaları
+      const wavePoints = 20;
+      for (let i = 0; i <= wavePoints; i++) {
+        const x = leftX + (rightX - leftX) * (i / wavePoints);
+        let y = waterHeight + waterOffset * ((i / wavePoints) - 0.5) * 2;
+        
+        // Küçük dalgalar ekle
+        const waveFactor = Math.sin(time * 2 + i * 0.8) 
+                 + Math.cos(time * 1.5 + i * 0.3)
+                 + 0.5 * Math.sin(time * 0.5 + i * 0.1);
+        y += waveFactor * waveHeight;
+        
+        waveCtx.lineTo(x, y);
+      }
+      
+      // Su alanını tamamla
+      waveCtx.lineTo(rightX, size);
+      waveCtx.lineTo(leftX, size);
+      waveCtx.closePath();
+      
+      // Gölge efekti
+      waveCtx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.5)`;
+      waveCtx.shadowBlur = 10;
+      
+      // Su alanını doldur
+      waveCtx.fillStyle = waterGradient;
+      waveCtx.fill();
+      
+      // Su yüzeyine parıltı çiz
+      waveCtx.beginPath();
+      for (let i = 0; i <= wavePoints; i++) {
+        const x = leftX + (rightX - leftX) * (i / wavePoints);
+        let y = waterHeight + waterOffset * ((i / wavePoints) - 0.5) * 2;
+        // Küçük dalgalar ekle
+        const waveFactor = Math.sin(time * 2 + i * 0.8) + Math.cos(time * 1.5 + i * 0.3);
+        y += waveFactor * waveHeight;
+        
+        if (i === 0) waveCtx.moveTo(x, y);
+        else waveCtx.lineTo(x, y);
+      }
+      
+      waveCtx.strokeStyle = `rgba(255, 255, 255, 0.4)`;
+      waveCtx.lineWidth = 1.5;
+      waveCtx.stroke();
+      
+      waveCtx.restore();
+      
+      // Ayrıca orijinal dalga efektini de uygula
+      drawWaveEffect(intensity);
+    }
+    
+    // Orijinal dalga efekti (ikinci bir katman olarak)
+    function drawWaveEffect(intensity) {
+      // Hafif yayılma ve dalgalanma efekti
+      const time = Date.now() / 1000;
+      for (let i = 0; i < numPoints; i++) {
+        const angle = (i / numPoints) * Math.PI * 2;
+        
+        // Zamana bağlı olarak hafif dalgalanma
+        const waveFactor = Math.sin(time * 2 + i * 0.3) + Math.sin(time * 1.5 + i * 0.2);
+        
+        // Hedef yarıçapları güncelle
+        if (botSpeaking) {
+          // Bot konuşurken daha düzenli, sakin dalgalar
+          targetRadii[i] = radius + Math.sin(time * 2 + i * 0.2) * 5 * 0.3;
+        } else if (intensity > 0) {
+          // Konuşma şiddetine göre dalgalar
+          const noiseFactor = Math.sin(i * 0.5) + Math.cos(i * 0.3);
+          targetRadii[i] = radius + noiseFactor * intensity * 7;
+        } else {
+          // Sakin durumdaki hafif dalgalanma
+          targetRadii[i] = radius + waveFactor * 2;
+        }
+        
+        // Dalga hareketini güncelle (fizik efekti)
+        const springStrength = 0.1;
+        const damping = 0.9;
+        velocities[i] += (targetRadii[i] - points[i]) * springStrength;
+        velocities[i] *= damping;
+        points[i] += velocities[i];
+      }
+      
+      // Gradient oluştur (hafif, su efektini bozmadan)
+      const colorParts = currentColor.substring(5, currentColor.length - 1).split(',');
+      const r = colorParts[0].trim();
+      const g = colorParts[1].trim();
+      const b = colorParts[2].trim();
+      
+      // Sadece kenar dalga efekti olarak uygula
+      waveCtx.save();
+      waveCtx.beginPath();
+      
+      // İlk noktayı belirle
+      const startAngle = 0;
+      const startX = centerX + Math.cos(startAngle) * points[0];
+      const startY = centerY + Math.sin(startAngle) * points[0];
+      waveCtx.moveTo(startX, startY);
+      
+      // Yumuşak eğri oluştur
+      for (let i = 0; i < numPoints; i++) {
+        const angle = (i / numPoints) * Math.PI * 2;
+        const nextIdx = (i + 1) % numPoints;
+        const nextAngle = (nextIdx / numPoints) * Math.PI * 2;
+        
+        const currentX = centerX + Math.cos(angle) * points[i];
+        const currentY = centerY + Math.sin(angle) * points[i];
+        
+        const nextX = centerX + Math.cos(nextAngle) * points[nextIdx];
+        const nextY = centerY + Math.sin(nextAngle) * points[nextIdx];
+        
+        // Bezier eğrisi ile yumuşak bağlantı
+        const cp1x = currentX + (nextX - currentX) * 0.2;
+        const cp1y = currentY + (nextY - currentY) * 0.2;
+        const cp2x = nextX - (nextX - currentX) * 0.2;
+        const cp2y = nextY - (nextY - currentY) * 0.2;
+        
+        waveCtx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, nextX, nextY);
+      }
+      
+      waveCtx.closePath();
+      waveCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.3)`;
+      waveCtx.lineWidth = 0.8;
+      waveCtx.stroke();
+      
+      waveCtx.restore();
+    }
+
+    // Arka plan parçacıkları
     let particles = Array.from({ length: 60 }, () => ({
       x: Math.random() * canvas.width,
       y: Math.random() * canvas.height,
@@ -188,10 +500,87 @@
     }
     animateParticles();
 
-    // Sağ Tık Devre Dışı (değişmedi)
+    // Sağ Tık Devre Dışı
     canvas.addEventListener("contextmenu", (e) => {
       e.preventDefault();
     });
+
+    // Pulse halkası oluştur fonksiyonu
+    function createPulseRing(isBot = false) {
+      const pulseRing = document.createElement('div');
+      pulseRing.className = 'pulse-ring';
+      
+      if (isBot) {
+        pulseRing.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+      }
+      
+      circle.appendChild(pulseRing);
+      
+      // Animasyonu başlat
+      pulseRing.animate(
+        [
+          { transform: 'translate(-50%, -50%) scale(0.8)', opacity: 0.5 },
+          { transform: 'translate(-50%, -50%) scale(1.5)', opacity: 0 }
+        ],
+        {
+          duration: isBot ? 2000 : 1000,
+          easing: 'ease-out',
+          fill: 'forwards'
+        }
+      );
+      
+      // Animasyon bitince elementi kaldır
+      setTimeout(() => {
+        pulseRing.remove();
+      }, isBot ? 2000 : 1000);
+    }
+
+    // Bot konuşma animasyonu başlat
+    function startBotSpeaking() {
+      botSpeaking = true;
+      circle.className = "bot-speaking";
+      circle.style.backgroundColor = '#3498db'; // Bot konuşma başlarken mavi
+      
+      // İç içe elementleri oluştur
+      let innerCircle = document.createElement('div');
+      innerCircle.className = 'inner-circle bot';
+      circle.appendChild(innerCircle);
+      
+      // İlk defa pulse halkası oluştur
+      createPulseRing(true);
+      
+      // Aralıklı olarak pulse halkası oluştur
+      const pulseInterval = setInterval(() => {
+        if (!botSpeaking) {
+          clearInterval(pulseInterval);
+          return;
+        }
+        createPulseRing(true);
+      }, 3000);
+    }
+
+    // Bot konuşma animasyonu durdur
+    function stopBotSpeaking() {
+      botSpeaking = false;
+      circle.className = "";
+      circle.style.transform = 'scale(1)';
+      circle.style.backgroundColor = '#7f8c8d'; // Konuşma bittiğinde griye dön
+      
+      // İç elementleri temizle
+      const innerCircle = document.querySelector('.inner-circle');
+      if (innerCircle) innerCircle.remove();
+      
+      // Pulse halkalarını temizle
+      const pulseRings = document.querySelectorAll('.pulse-ring');
+      pulseRings.forEach(ring => ring.remove());
+    }
+
+    // Sürekli dalga animasyonu
+    function animateLoop() {
+      drawWaves(0); // Başlangıçta sakin dalgalar
+      requestAnimationFrame(animateLoop);
+    }
+    animateLoop();
 
     // Mikrofon Sürekli Açık
     navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -216,63 +605,106 @@
       let lastSpokenTime = Date.now();
       let isRecording = false;
 
-function detectVoice() {
-  analyser.getByteTimeDomainData(buffer);
-  const sessiz = buffer.every(v => Math.abs(v - 128) < 5);
+      function detectVoice() {
+        analyser.getByteTimeDomainData(buffer);
+        
+        // Ses şiddetini hesapla
+        let maxGenlik = 0;
+        for (let i = 0; i < buffer.length; i++) {
+          const genlik = Math.abs(buffer[i] - 128);
+          if (genlik > maxGenlik) maxGenlik = genlik;
+        }
+        const sesSeviyesi = maxGenlik / 128; // 0 ile 1 arasında normalize et
+        
+        // Ses eşiği - düşük sesleri filtrele
+        const sessiz = sesSeviyesi < 0.05;
+        
+        // Kontrol elementlerini oluştur veya al
+        let innerCircle = document.querySelector('.inner-circle');
+        
+        const simdi = Date.now();
+        const sonKonusmaFarki = simdi - lastSpokenTime;
 
-  // Ses şiddetini hesapla
-  let maxGenlik = 0;
-  for (let i = 0; i < buffer.length; i++) {
-    const genlik = Math.abs(buffer[i] - 128);
-    if (genlik > maxGenlik) maxGenlik = genlik;
-  }
-  const sesSeviyesi = maxGenlik / 128; // 0 ile 1 arasında normalize et
+        // Ses seviyesine göre kademeli hedef ölçek belirle
+        let hedefOlcek = 1 + (sesSeviyesi * 0.6); // Maksimum %60 büyüme
+        
+        // Eğer ses varsa ve bot konuşmuyorsa
+        if (!sessiz && !botSpeaking) {
+          if (!isRecording) {
+            recorder.start();
+            circle.className = "recording";
+            isRecording = true;
+            
+            // İç elementi oluştur
+            if (!innerCircle) {
+              innerCircle = document.createElement('div');
+              innerCircle.className = 'inner-circle';
+              circle.appendChild(innerCircle);
+            }
+            
+            // İlk defa pulse halkası oluştur
+            createPulseRing();
+          }
+          
+          // Ses seviyesine göre circle boyutunu ayarla
+          circle.style.transform = `scale(${hedefOlcek})`;
+          currentScale = hedefOlcek;
+          
+          // İç circle'ı ses seviyesine göre ayarla
+          if (innerCircle) {
+            innerCircle.style.transform = `translate(-50%, -50%) scale(${0.8 + sesSeviyesi * 0.4})`;
+          }
+          
+          // Renk yoğunluğunu ses seviyesine göre ayarla
+          const intensity = 55 + Math.floor(sesSeviyesi * 45);
+          circle.style.backgroundColor = `hsl(4, ${intensity}%, 55%)`;
+          
+          // Dalgaları ses seviyesine göre güncelle
+          drawWaves(sesSeviyesi);
+          
+          // Sıvı animasyonundaki su seviyesini ses şiddetine göre ayarla
+          waterLevel = 0.5 + (sesSeviyesi * 0.1);
+          
+          // Yüksek ses seviyelerinde pulse halkası oluştur
+          if (sesSeviyesi > 0.5 && simdi - lastPulseTime > 300) {
+            createPulseRing();
+            lastPulseTime = simdi;
+          }
+          
+          lastSpokenTime = simdi;
+        } else if (isRecording && sonKonusmaFarki > 1500) {
+          recorder.stop();
+          circle.className = "";
+          circle.style.transform = 'scale(1)';
+          circle.style.backgroundColor = '#7f8c8d';
+          isRecording = false;
+          
+          // İç elementi temizle
+          if (innerCircle) innerCircle.remove();
+          
+          // Pulse halkalarını temizle
+          const pulseRings = document.querySelectorAll('.pulse-ring');
+          pulseRings.forEach(ring => ring.remove());
+        } else if (!isRecording && !botSpeaking) {
+          // Normal duruma dön
+          const mevcutOlcek = parseFloat(circle.style.transform?.match(/scale\(([^)]+)\)/)?.[1] || 1);
+          const yeniOlcek = mevcutOlcek + (1 - mevcutOlcek) * 0.1;
+          circle.style.transform = `scale(${yeniOlcek})`;
+        }
 
-  // Ses seviyesine göre kademeli hedef ölçek belirle
-  let hedefOlcek;
-  if (sesSeviyesi < 0.33) {
-    hedefOlcek = 1.2; // Düşük ses, %20 büyüme
-  } else if (sesSeviyesi < 0.66) {
-    hedefOlcek = 1.4; // Orta ses, %50 büyüme
-  } else {
-    hedefOlcek = 1.6; // Yüksek ses, %80 büyüme
-  }
-
-  const simdi = Date.now();
-  const sonKonusmaFarki = simdi - lastSpokenTime;
-
-  // Mevcut ölçeği yumuşakça hedefe yaklaştır
-  const mevcutOlcek = parseFloat(circle.style.transform.replace("scale(", "").replace(")", "") || 1);
-  const yumusatmaFaktoru = 0.1; // Geçiş hızı
-  const yeniOlcek = mevcutOlcek + (hedefOlcek - mevcutOlcek) * yumusatmaFaktoru;
-
-  if (!sessiz && !botSpeaking) {
-    if (!isRecording) {
-      recorder.start();
-      circle.className = "recording";
-      isRecording = true;
-    }
-    circle.style.transform = `scale(${yeniOlcek})`;
-    lastSpokenTime = simdi;
-  } else if (isRecording && sonKonusmaFarki > 1500) {
-    recorder.stop();
-    circle.className = "";
-    circle.style.transform = `scale(1)`; // Varsayılan boyuta dön
-    isRecording = false;
-  } else if (!isRecording && !botSpeaking) {
-    circle.style.transform = `scale(${mevcutOlcek + (1 - mevcutOlcek) * yumusatmaFaktoru})`; // Yavaşça 1’e dön
-  }
-
-  requestAnimationFrame(detectVoice);
-}
-
+        requestAnimationFrame(detectVoice);
+      }
       detectVoice();
     });
+
+    // Sayfa yenilendiğinde benzersiz session_id üret
+    const sessionId = "sess_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
 
     // Server'a Gönderme ve Yanıt Çalma
     function sendToServer(blob) {
       const formData = new FormData();
       formData.append("audio", blob);
+      formData.append("session_id", sessionId);
 
       fetch("http://127.0.0.1:6006/quik-audio", {
         method: "POST",
@@ -281,25 +713,31 @@ function detectVoice() {
         .then(res => res.blob())
         .then(mp3Blob => {
           const audio = new Audio(URL.createObjectURL(mp3Blob));
-          botSpeaking = true;
-          circle.className = "bot-speaking";
+          
+          // Bot konuşma animasyonunu başlat
+          startBotSpeaking();
+          
           audio.play();
           audio.onended = () => {
-            botSpeaking = false;
+            // Bot konuşma animasyonunu durdur
+            stopBotSpeaking();
             endSound.play();
-            circle.className = "";
-            circle.style.transform = `scale(1)`; // Varsayılan boyuta dön
           };
         });
     }
 
-document.getElementById("close-btn").addEventListener("click", () => {
-  document.body.classList.add("fade-out");
-  setTimeout(() => {
-    window.location.href = "https://dennisao-sys.github.io/quikai.app/";
-  }, 500); // Matches the animation duration (0.5s)
-});
-
+    document.getElementById("close-btn").addEventListener("click", () => {
+      document.body.classList.add("fade-out");
+      setTimeout(() => {
+        window.location.href = "https://dennisao-sys.github.io/quikai.app/";
+      }, 500); // Matches the animation duration (0.5s)
+    });
+    
+    // Pencere boyutu değiştiğinde canvas'ları yeniden boyutlandır
+    window.addEventListener("resize", () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
   </script>
 </body>
 </html>
